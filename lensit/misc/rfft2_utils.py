@@ -148,7 +148,7 @@ def _degrade_rfft2(rfft2map, LDshape):
 
 
 def _upgrade_rfft2(rfft2map, HDshape):
-    ret = np.zeros((HDshape[0], HDshape[0] / 2 + 1), dtype=complex)
+    ret = np.zeros((HDshape[0], HDshape[0] // 2 + 1), dtype=complex)
     # positive 0axis frequencies : (including N/2 + 1, which is pure real.
     ret[0:rfft2map.shape[0] // 2 + 1, 0:rfft2map.shape[1]] = rfft2map[0:rfft2map.shape[0] // 2 + 1, 0:rfft2map.shape[1]]
     # Negative 0axis freq.

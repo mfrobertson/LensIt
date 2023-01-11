@@ -10,6 +10,7 @@ from lensit.ffs_covs import ffs_cov, ell_mat
 from lensit.sims import ffs_phas, ffs_maps, ffs_cmbs
 from lensit.pbs import pbs
 from lensit.misc.misc_utils import enumerate_progress, camb_clfile, gauss_beam
+from scipy.interpolate import InterpolatedUnivariateSpline
 
 
 def _get_lensitdir():
@@ -30,7 +31,7 @@ def get_fidcls(ellmax_sky=6000):
 
     """
     cls_unl = {}
-    cls_unlr = camb_clfile(os.path.join(_get_lensitdir()[1], 'fiducial_flatsky_lenspotentialCls.dat'))
+    cls_unlr = camb_clfile(os.path.join(_get_lensitdir()[1], 'my_fiducial_flatsky_lenspotentialCls.dat'))
     for key in cls_unlr.keys():
         cls_unl[key] = cls_unlr[key][0:ellmax_sky + 1]
         if key == 'pp': cls_unl[key] = cls_unlr[key][:]  # might need this one to higher lmax
@@ -116,6 +117,7 @@ def get_maps_lib(exp, LDres, HDres=14, cache_lenalms=True, cache_maps=False,
 
     """
     sN_uKamin, sN_uKaminP, Beam_FWHM_amin, ellmin, ellmax = get_config(exp)
+    if exp[0] == "custom": exp = exp[6]
     len_cmbs = get_lencmbs_lib(res=HDres, cache_sims=cache_lenalms, nsims=nsims)
     lmax_sky = len_cmbs.lib_skyalm.ellmax
     cl_transf = gauss_beam(Beam_FWHM_amin / 60. * np.pi / 180., lmax=lmax_sky)
@@ -126,6 +128,30 @@ def get_maps_lib(exp, LDres, HDres=14, cache_lenalms=True, cache_maps=False,
     nTpix = sN_uKamin / np.sqrt(vcell_amin2)
     nPpix = sN_uKaminP / np.sqrt(vcell_amin2)
 
+    # TODO: Allow custom noise curves to be supplied (currently cheating as don't need noise at map level for bias calcs)
+    # if np.size(nTpix) > 1:
+    #     Ls = np.arange(np.size(nTpix))
+    #     nTpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
+    #     Ls = lib_datalm.ell_mat()[:2**LDres,:2**LDres//2+1]
+    #     nTpix = nTpix_spline(Ls)
+    #     nTpix = np.fft.irfft2(nTpix)
+    #     nTpix[0,0]=0
+    #     nTpix[2**LDres // 2, 0] = np.real(nTpix[2**LDres // 2, 0]) * np.sqrt(2)
+    #     nTpix[0, 2**LDres // 2] = np.real(nTpix[0, 2**LDres // 2]) * np.sqrt(2)
+    #     nTpix[2**LDres // 2, 2**LDres // 2] = np.real(nTpix[2**LDres // 2, 2**LDres // 2]) * np.sqrt(2)
+    #
+    #     # +ve k_y mirrors -ve conj(k_y) at k_x = 0
+    #     nTpix[2**LDres // 2 + 1:, 0] = np.conjugate(nTpix[1:2**LDres // 2, 0][::-1])
+    #
+    #     # +ve k_y mirrors -ve conj(k_y) at k_x = N/2 (Nyquist freq)
+    #     nTpix[2**LDres // 2 + 1:, -1] = np.conjugate(nTpix[1:2**LDres // 2, -1][::-1])
+    # if np.size(nPpix) > 1:
+    #     Ls = np.arange(np.size(nTpix))
+    #     nPpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
+    #     Ls = lib_datalm.ell_mat()[:2 ** LDres, :2 ** LDres // 2 + 1]
+    #     nPpix = nPpix_spline(Ls)
+    #     nPpix = np.fft.irfft2(nPpix)
+    #     nPpix[0, 0] = 0
     pixpha_libdir = os.path.join(_get_lensitdir()[0], 'temp', '%s_sims' % nsims, 'fsky%04d' % fsky, 'res%s' % LDres, 'pixpha')
     pixpha = ffs_phas.pix_lib_phas(pixpha_libdir, 3, lib_datalm.ell_mat.shape, nsims_max=nsims)
 
@@ -150,6 +176,7 @@ def get_isocov(exp, LD_res, HD_res=14, pyFFTWthreads=int(os.environ.get('OMP_NUM
     """
     ellmax_sky = 6000
     sN_uKamin, sN_uKaminP, Beam_FWHM_amin, ellmin, ellmax = get_config(exp)
+    if exp[0] == "custom": exp = exp[6]
     cls_unl, cls_len = get_fidcls(ellmax_sky=ellmax_sky)
 
     cls_noise = {'t': (sN_uKamin * np.pi / 180. / 60.) ** 2 * np.ones(ellmax_sky + 1),
@@ -162,6 +189,7 @@ def get_isocov(exp, LD_res, HD_res=14, pyFFTWthreads=int(os.environ.get('OMP_NUM
                         filt_func=lambda ell: (ell <= ellmax_sky), num_threads=pyFFTWthreads)
 
     lib_dir = os.path.join(_get_lensitdir()[0], 'temp', 'Covs', '%s' % exp, 'LD%sHD%s' % (LD_res, HD_res))
+    # print(get_ellmat(LD_res, HD_res=HD_res)()[:10,:10])
     return ffs_cov.ffs_diagcov_alm(lib_dir, lib_alm, cls_unl, cls_len, cl_transf, cls_noise, lib_skyalm=lib_skyalm)
 
 
@@ -221,6 +249,14 @@ def get_config(exp):
         Beam_FWHM_amin = 1.4
         ellmin=10
         ellmax=3000
+    elif exp[0] == "custom":
+        sN_uKamin = exp[1]
+        Beam_FWHM_amin = exp[2]
+        ellmin = exp[3]
+        ellmax = exp[4]
+        if exp[5] is not None:
+            sN_uKaminP = exp[5]
+            return sN_uKamin, sN_uKaminP, Beam_FWHM_amin, ellmin, ellmax
     else:
         sN_uKamin = 0
         Beam_FWHM_amin = 0

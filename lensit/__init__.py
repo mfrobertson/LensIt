@@ -99,6 +99,20 @@ def get_lencmbs_lib(res=14, cache_sims=True, nsims=120, num_threads=int(os.envir
     return ffs_cmbs.sims_cmb_len(sims_libdir, lib_skyalm, cls_unl, lib_pha=skypha, cache_lens=cache_sims)
 
 
+def _enforce_sym(field, N_pix):
+    field[0, 0] = 0
+    field[N_pix // 2, 0] = np.real(field[N_pix // 2, 0]) * np.sqrt(2)
+    field[0, N_pix // 2] = np.real(field[0, N_pix // 2]) * np.sqrt(2)
+    field[N_pix // 2, N_pix // 2] = np.real(field[N_pix // 2, N_pix // 2]) * np.sqrt(2)
+
+    # +ve k_y mirrors -ve conj(k_y) at k_x = 0
+    field[N_pix // 2 + 1:, 0] = np.conjugate(field[1:N_pix // 2, 0][::-1])
+
+    # +ve k_y mirrors -ve conj(k_y) at k_x = N/2 (Nyquist freq)
+    field[N_pix // 2 + 1:, -1] = np.conjugate(field[1:N_pix // 2, -1][::-1])
+    return field
+
+
 def get_maps_lib(exp, LDres, HDres=14, cache_lenalms=True, cache_maps=False,
                  nsims=120, num_threads=int(os.environ.get('OMP_NUM_THREADS', 1))):
     r"""Default CMB data maps simulation library
@@ -128,30 +142,20 @@ def get_maps_lib(exp, LDres, HDres=14, cache_lenalms=True, cache_maps=False,
     nTpix = sN_uKamin / np.sqrt(vcell_amin2)
     nPpix = sN_uKaminP / np.sqrt(vcell_amin2)
 
-    # TODO: Allow custom noise curves to be supplied (currently cheating as don't need noise at map level for bias calcs)
-    # if np.size(nTpix) > 1:
-    #     Ls = np.arange(np.size(nTpix))
-    #     nTpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
-    #     Ls = lib_datalm.ell_mat()[:2**LDres,:2**LDres//2+1]
-    #     nTpix = nTpix_spline(Ls)
-    #     nTpix = np.fft.irfft2(nTpix)
-    #     nTpix[0,0]=0
-    #     nTpix[2**LDres // 2, 0] = np.real(nTpix[2**LDres // 2, 0]) * np.sqrt(2)
-    #     nTpix[0, 2**LDres // 2] = np.real(nTpix[0, 2**LDres // 2]) * np.sqrt(2)
-    #     nTpix[2**LDres // 2, 2**LDres // 2] = np.real(nTpix[2**LDres // 2, 2**LDres // 2]) * np.sqrt(2)
-    #
-    #     # +ve k_y mirrors -ve conj(k_y) at k_x = 0
-    #     nTpix[2**LDres // 2 + 1:, 0] = np.conjugate(nTpix[1:2**LDres // 2, 0][::-1])
-    #
-    #     # +ve k_y mirrors -ve conj(k_y) at k_x = N/2 (Nyquist freq)
-    #     nTpix[2**LDres // 2 + 1:, -1] = np.conjugate(nTpix[1:2**LDres // 2, -1][::-1])
-    # if np.size(nPpix) > 1:
-    #     Ls = np.arange(np.size(nTpix))
-    #     nPpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
-    #     Ls = lib_datalm.ell_mat()[:2 ** LDres, :2 ** LDres // 2 + 1]
-    #     nPpix = nPpix_spline(Ls)
-    #     nPpix = np.fft.irfft2(nPpix)
-    #     nPpix[0, 0] = 0
+    # TODO: Allow custom noise curves to be supplied (basically make this work)
+    if np.size(nTpix) > 1:
+        Ls = np.arange(np.size(nTpix))
+        nTpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
+        Ls = lib_datalm.ell_mat()[:2**LDres,:2**LDres//2+1]
+        nTpix = nTpix_spline(Ls)
+        nTpix = np.fft.irfft2(_enforce_sym(nTpix,2**LDres))   #Normalisation?
+    if np.size(nPpix) > 1:
+        Ls = np.arange(np.size(nTpix))
+        nPpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
+        Ls = lib_datalm.ell_mat()[:2 ** LDres, :2 ** LDres // 2 + 1]
+        nPpix = nPpix_spline(Ls)
+        nPpix = np.fft.irfft2(_enforce_sym(nPpix,2**LDres))   #Normalisation?
+
     pixpha_libdir = os.path.join(_get_lensitdir()[0], 'temp', '%s_sims' % nsims, 'fsky%04d' % fsky, 'res%s' % LDres, 'pixpha')
     pixpha = ffs_phas.pix_lib_phas(pixpha_libdir, 3, lib_datalm.ell_mat.shape, nsims_max=nsims)
 

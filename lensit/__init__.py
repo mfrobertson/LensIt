@@ -31,7 +31,7 @@ def get_fidcls(ellmax_sky=6000):
 
     """
     cls_unl = {}
-    cls_unlr = camb_clfile(os.path.join(_get_lensitdir()[1], 'my_fiducial_flatsky_lenspotentialCls.dat'))
+    cls_unlr = camb_clfile(os.path.join(_get_lensitdir()[1], 'my_fiducial_flatsky_lenspotentialCls.dat')) #my_fiducial_flatsky_lenspotentialCls.dat
     for key in cls_unlr.keys():
         cls_unl[key] = cls_unlr[key][0:ellmax_sky + 1]
         if key == 'pp': cls_unl[key] = cls_unlr[key][:]  # might need this one to higher lmax

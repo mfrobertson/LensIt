@@ -142,19 +142,12 @@ def get_maps_lib(exp, LDres, HDres=14, cache_lenalms=True, cache_maps=False,
     nTpix = sN_uKamin / np.sqrt(vcell_amin2)
     nPpix = sN_uKaminP / np.sqrt(vcell_amin2)
 
-    # TODO: Allow custom noise curves to be supplied (basically make this work)
+    # Will not use noise if array is supplied
     if np.size(nTpix) > 1:
-        Ls = np.arange(np.size(nTpix))
-        nTpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
-        Ls = lib_datalm.ell_mat()[:2**LDres,:2**LDres//2+1]
-        nTpix = nTpix_spline(Ls)
-        nTpix = np.fft.irfft2(_enforce_sym(nTpix,2**LDres))   #Normalisation?
+        nTpix = nTpix[100]
+
     if np.size(nPpix) > 1:
-        Ls = np.arange(np.size(nTpix))
-        nPpix_spline = InterpolatedUnivariateSpline(Ls[2:], Ls[2:])
-        Ls = lib_datalm.ell_mat()[:2 ** LDres, :2 ** LDres // 2 + 1]
-        nPpix = nPpix_spline(Ls)
-        nPpix = np.fft.irfft2(_enforce_sym(nPpix,2**LDres))   #Normalisation?
+        nPpix = nPpix[100]
 
     pixpha_libdir = os.path.join(_get_lensitdir()[0], 'temp', '%s_sims' % nsims, 'fsky%04d' % fsky, 'res%s' % LDres, 'pixpha')
     pixpha = ffs_phas.pix_lib_phas(pixpha_libdir, 3, lib_datalm.ell_mat.shape, nsims_max=nsims)

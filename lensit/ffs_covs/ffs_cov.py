@@ -632,7 +632,7 @@ class ffs_diagcov_alm(object):
     def apply_condpseudiagcl(self, typ, alms, use_Pool=0):
         return self.apply_conddiagcl(typ, alms, use_Pool=use_Pool)
 
-    def get_qlms(self, typ, iblms, lib_qlm, use_cls_len=True, **kwargs):
+    def get_qlms(self, typ, iblms, lib_qlm, use_cls_len=True, resp_cls=None, **kwargs):
         r"""Unormalized quadratic estimates (potential and curl).
 
         Note:
@@ -655,6 +655,7 @@ class ffs_diagcov_alm(object):
         t = timer(_timed)
 
         weights_cls = self.cls_len if use_cls_len else self.cls_unl
+        weights_cls = resp_cls if resp_cls is not None else weights_cls
         clms = np.zeros((len(typ), self.lib_skyalm.alm_size), dtype=complex)
         for _i in range(len(typ)):
             for _j in range(len(typ)):

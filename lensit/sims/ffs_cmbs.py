@@ -169,20 +169,22 @@ class sims_cmb_len:
         else:
             assert 0, (field, self.fields)
 
-    def get_sim_tlm(self, idx):
+    def get_sim_tlm(self, idx, phi_idx=None):
         fname = os.path.join(self.lib_dir, 'sim_%04d_tlm.npy'%idx)
         if not os.path.exists(fname):
-            Tlm = self._get_f(idx).lens_alm(self.lib_skyalm, self.unlcmbs.get_sim_tlm(idx), use_Pool=self.Pool)
+            fidx=idx if phi_idx is None else phi_idx
+            Tlm = self._get_f(fidx).lens_alm(self.lib_skyalm, self.unlcmbs.get_sim_tlm(idx), use_Pool=self.Pool)
             if not self.cache_lens: return Tlm
             np.save(fname, Tlm)
         return np.load(fname)
 
-    def get_sim_qulm(self, idx):
+    def get_sim_qulm(self, idx, phi_idx=None):
         fname = os.path.join(self.lib_dir, 'sim_%04d_qulm.npy'%idx)
         if not os.path.exists(fname):
+            fidx = idx if phi_idx is None else phi_idx
             Qlm, Ulm = self.lib_skyalm.EBlms2QUalms(
                 np.array([self.unlcmbs.get_sim_elm(idx), self.unlcmbs.get_sim_blm(idx)]))
-            f = self._get_f(idx)
+            f = self._get_f(fidx)
             Qlm = f.lens_alm(self.lib_skyalm, Qlm, use_Pool=self.Pool)
             Ulm = f.lens_alm(self.lib_skyalm, Ulm, use_Pool=self.Pool)
             if not self.cache_lens: return np.array([Qlm, Ulm])

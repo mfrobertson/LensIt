@@ -231,13 +231,13 @@ class lib_noisemap:
     def _loadUnoise(self):
         return np.load(self.nUpix)
 
-    def _build_sim_tmap(self, idx):
-        tmap = self.lib_skyalm.almxfl(self.lencmbs.get_sim_tlm(idx), self.cl_transf)
+    def _build_sim_tmap(self, idx, phi_idx):
+        tmap = self.lib_skyalm.almxfl(self.lencmbs.get_sim_tlm(idx, phi_idx), self.cl_transf)
         tmap = self.lib_datalm.alm2map(self.lib_datalm.udgrade(self.lencmbs.lib_skyalm, tmap))
         return tmap + self.get_noise_sim_tmap(idx)
 
-    def _build_sim_qumap(self, idx):
-        qmap, umap = self.lencmbs.get_sim_qulm(idx)
+    def _build_sim_qumap(self, idx, phi_idx):
+        qmap, umap = self.lencmbs.get_sim_qulm(idx, phi_idx)
         self.lib_skyalm.almxfl(qmap, self.cl_transf, inplace=True)
         self.lib_skyalm.almxfl(umap, self.cl_transf, inplace=True)
         qmap = self.lib_datalm.alm2map(self.lib_datalm.udgrade(self.lencmbs.lib_skyalm, qmap))
@@ -253,27 +253,27 @@ class lib_noisemap:
     def get_noise_sim_umap(self, idx):
         return self._loadUnoise() * self.pix_pha.get_sim(idx, 2)
 
-    def get_sim_tmap(self, idx):
+    def get_sim_tmap(self, idx, phi_idx=None):
         fn = os.path.join(self.lib_dir,  'sim_tmap_%05d.npy'%idx)
         if self.cache_sims and not os.path.exists(fn):
             if pbs.rank == 0:
-                np.save(fn, self._build_sim_tmap(idx))
+                np.save(fn, self._build_sim_tmap(idx, phi_idx))
             pbs.barrier()
         if self.cache_sims:
             return np.load(fn)
         else:
-            return self._build_sim_tmap(idx)
+            return self._build_sim_tmap(idx, phi_idx)
 
-    def get_sim_qumap(self, idx):
+    def get_sim_qumap(self, idx, phi_idx=None):
         fn = os.path.join(self.lib_dir,  'sim_qumap_%05d.npy'%idx)
         if self.cache_sims and not os.path.exists(fn):
             if pbs.rank == 0:
-                np.save(fn, np.array(self._build_sim_qumap(idx)))
+                np.save(fn, np.array(self._build_sim_qumap(idx, phi_idx)))
             pbs.barrier()
         if self.cache_sims:
             return np.load(fn)
         else:
-            return self._build_sim_qumap(idx)
+            return self._build_sim_qumap(idx, phi_idx)
 
 class lib_noisefree:
     def __init__(self, lib_dir, lib_datalm, lib_lencmb, cl_transf, cache_sims=False):

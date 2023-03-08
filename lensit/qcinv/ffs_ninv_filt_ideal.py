@@ -18,10 +18,12 @@ class ffs_ninv_filt(object):
         self.cls = {}
         for k in len_cls.keys():
             self.cls[k] = (len_cls[k][:lib_skyalm.ellmax + 1]).copy()
-        self.nlevs = {'t': nlev_t, 'q': nlev_p, 'u': nlev_p}
-        self._nlevs_rad2 = {'t': (nlev_t / 180 / 60. * np.pi) ** 2,
-                            'q': (nlev_p / 180 / 60. * np.pi) ** 2,
-                            'u': (nlev_p / 180 / 60. * np.pi) ** 2}
+        self.nlevs = {'t': nlev_t * np.ones(lib_skyalm.ellmax + 1),
+                      'q': nlev_p * np.ones(lib_skyalm.ellmax + 1),
+                      'u': nlev_p * np.ones(lib_skyalm.ellmax + 1)}
+        self._nlevs_rad2 = {'t': (self.nlevs['t'] / 180 / 60. * np.pi) ** 2,
+                            'q': (self.nlevs['q'] / 180 / 60. * np.pi) ** 2,
+                            'u': (self.nlevs['u'] / 180 / 60. * np.pi) ** 2}
         self.verbose = verbose
 
     def hashdict(self):
@@ -38,7 +40,7 @@ class ffs_ninv_filt(object):
     def iNoiseCl(self, field):
         # FIXME : should I put zero after datalm ?
         ret = np.zeros(self.lib_skyalm.ellmax + 1)
-        ret[:self.lib_datalm.ellmax + 1] = 1. / (self._nlevs_rad2[field.lower()])
+        ret[:self.lib_datalm.ellmax + 1] = 1. / (self._nlevs_rad2[field.lower()][:self.lib_datalm.ellmax + 1])
         return ret
         # return np.ones(self.lib_skyalm.ellmax + 1) / (self._nlevs_rad2[field.lower()])
 
@@ -125,9 +127,9 @@ class ffs_ninv_filt(object):
         assert _map.size == self.lib_datalm.alm_size, (_map.size, self.lib_datalm.alm_size)
         assert field.lower() in ['t', 'q', 'u'], field
         if inplace:
-            _map[:] *= (1. / self._nlevs_rad2[field.lower()])
+            _map[:] = self.lib_datalm.almxfl(_map[:], 1. / self._nlevs_rad2[field.lower()])
         else:
-            return _map * (1. / self._nlevs_rad2[field.lower()])
+            return self.lib_datalm.almxfl(_map, 1. / self._nlevs_rad2[field.lower()])
 
     def apply_maps(self, TQUtype, _maps, inplace=True):
         """
@@ -137,7 +139,7 @@ class ffs_ninv_filt(object):
             for i, field in enumerate(TQUtype):
                 assert field.lower() in ['t', 'q', 'u'], field
                 assert _maps[i].size == self.lib_datalm.alm_size, (_maps[i].size, self.lib_datalm.alm_size)
-                _maps[i][:] *= (1. / self._nlevs_rad2[field.lower()])
+                _maps[i][:] = self.lib_datalm.almxfl(_maps[i][:], 1. / self._nlevs_rad2[field.lower()])
         else:
             ret = np.zeros((len(TQUtype), self.lib_datalm.alm_size), dtype=complex)
             for i, field in enumerate(TQUtype):
@@ -147,18 +149,19 @@ class ffs_ninv_filt(object):
                     print('*** ninv_filt_ideal: you fed me position space maps instead of alms, I am assuming this ok to just project them onto the lib_datalm modes')
                     assert not inplace, 'but cant do this inplace'
                     _maps = np.array([self.lib_datalm.map2alm(m) for m in _maps])
-                ret[i] =_maps[i] * (1. / self._nlevs_rad2[field.lower()])
+                # ret[i] =_maps[i] * (1. / self._nlevs_rad2[field.lower()])
+                ret[i] = self.lib_datalm.almxfl(_maps[i],  1./(self._nlevs_rad2[field.lower()]))
             return ret
 
 
     def turn2wlfilt(self, f, fi, cls_unl=None, lens_pool=0):
-            assert self.nlevs['q'] == self.nlevs['u']
+            assert np.all(self.nlevs['q'] == self.nlevs['u'])
             cls = self.cls if cls_unl is None else cls_unl
             return ffs_ninv_filt_wl(self.lib_datalm, self.lib_skyalm, cls, self.cl_transf, self.nlevs['t'], self.nlevs['q'],
                                     f, fi, verbose=self.verbose, lens_pool=lens_pool)
 
     def turn2isofilt(self):
-        assert self.nlevs['q'] == self.nlevs['u']
+        assert np.all(self.nlevs['q'] == self.nlevs['u'])
         return ffs_ninv_filt(self.lib_datalm, self.lib_skyalm, self.cls, self.cl_transf, self.nlevs['t'],
                              self.nlevs['q'],
                              verbose=self.verbose)
@@ -170,7 +173,7 @@ class ffs_ninv_filt(object):
     def degrade(self, shape, ellmax=None, ellmin=None, **kwargs):
         lib_almsky = self.lib_skyalm.degrade(shape, ellmax=ellmax, ellmin=ellmin)
         lib_almdat = self.lib_datalm.degrade(shape, ellmax=ellmax, ellmin=ellmin)
-        assert self.nlevs['q'] == self.nlevs['u']
+        assert np.all(self.nlevs['q'] == self.nlevs['u'])
         return ffs_ninv_filt(lib_almdat, lib_almsky, self.cls, self.cl_transf, self.nlevs['t'], self.nlevs['q'],verbose=self.verbose)
 
 
@@ -267,7 +270,7 @@ class ffs_ninv_filt_wl(ffs_ninv_filt):
     def degrade(self, shape, no_lensing=False, ellmax=None, ellmin=None, **kwargs):
         lib_almsky = self.lib_skyalm.degrade(shape, ellmax=ellmax, ellmin=ellmin)
         lib_almdat = self.lib_datalm.degrade(shape, ellmax=ellmax, ellmin=ellmin)
-        assert self.nlevs['q'] == self.nlevs['u']
+        assert np.all(self.nlevs['q'] == self.nlevs['u'])
         if no_lensing:
             return ffs_ninv_filt(lib_almdat, lib_almsky, self.cls, self.cl_transf, self.nlevs['t'], self.nlevs['q'],
                                  verbose=self.verbose)

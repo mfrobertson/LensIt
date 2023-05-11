@@ -35,7 +35,7 @@ def get_fidcls(ellmax_sky=LMAX_SKY, wrotationCls=False):
         cls_unl[key] = cls_unlr[key][0:ellmax_sky + 1]
         if key == 'pp': cls_unl[key] = cls_unlr[key][:]  # might need this one to higher lmax
     if wrotationCls:
-        cls_unl['oo'] = np.loadtxt(os.path.join(_get_lensitdir()[1], 'my_fiducial_fieldrotationCls.dat'))#fiducial_fieldrotationCls.dat
+        cls_unl['oo'] = np.loadtxt(os.path.join(_get_lensitdir()[1], 'fiducial_fieldrotationCls.dat'))#fiducial_fieldrotationCls.dat
     cls_len = {}
     cls_lenr = camb_clfile(os.path.join(_get_lensitdir()[1], 'fiducial_flatsky_lensedCls.dat'))
     for key in cls_lenr.keys():

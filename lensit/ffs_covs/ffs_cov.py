@@ -632,7 +632,7 @@ class ffs_diagcov_alm(object):
     def apply_condpseudiagcl(self, typ, alms, use_Pool=0):
         return self.apply_conddiagcl(typ, alms, use_Pool=use_Pool)
 
-    def get_qlms(self, typ, iblms, lib_qlm, use_cls_len=True, resp_cls=None, **kwargs):
+    def get_qlms(self, typ, iblms, lib_qlm, use_cls_len=True, resp_cls=None, iblms2=None, **kwargs):
         r"""Unormalized quadratic estimates (potential and curl).
 
         Note:
@@ -646,11 +646,14 @@ class ffs_diagcov_alm(object):
             iblms: inverse-variance filtered CMB alm arrays
             lib_qlm: *ffs_alm* instance describing the lensing alm arrays
             use_cls_len: use lensed or unlensed cls in QE weights (numerator), defaults to lensed cls
+            iblms2: inverse-variance filtered CMB alm arrays (if want second CMB leg from different sim)
 
 
         """
         assert iblms.shape == self._skyalms_shape(typ), (iblms.shape, self._skyalms_shape(typ))
         assert lib_qlm.lsides == self.lsides, (self.lsides, lib_qlm.lsides)
+
+        iblms2 = iblms if iblms2 is None else iblms2
 
         t = timer(_timed)
 
@@ -659,7 +662,7 @@ class ffs_diagcov_alm(object):
         clms = np.zeros((len(typ), self.lib_skyalm.alm_size), dtype=complex)
         for _i in range(len(typ)):
             for _j in range(len(typ)):
-                clms[_i] += pmat.get_unlPmat_ij(typ, self.lib_skyalm, weights_cls, _i, _j) * iblms[_j]
+                clms[_i] += pmat.get_unlPmat_ij(typ, self.lib_skyalm, weights_cls, _i, _j) * iblms2[_j]
 
         t.checkpoint("  get_qlms::mult with %s Pmat" % ({True: 'len', False: 'unl'}[use_cls_len]))
 
